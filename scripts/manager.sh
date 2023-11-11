@@ -39,7 +39,7 @@ restore() {
   while IFS=$'\t' read session_name window_name dir; do
     if [[ -d "$dir" && $window_name != "log" && $window_name != "man" ]]; then
       if session_exists "$session_name"; then
-        add_window "$session_name" "$window_name" "$dir"
+        # add_window "$session_name" "$window_name" "$dir"
       else
         new_session "$session_name" "$window_name" "$dir" "$dimensions"
         count=$(( count + 1 ))
