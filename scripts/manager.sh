@@ -40,6 +40,7 @@ restore() {
     if [[ -d "$dir" && $window_name != "log" && $window_name != "man" ]]; then
       if session_exists "$session_name"; then
         # add_window "$session_name" "$window_name" "$dir"
+          tmux display-message "sessions allready exist"
       else
         new_session "$session_name" "$window_name" "$dir" "$dimensions"
         count=$(( count + 1 ))
