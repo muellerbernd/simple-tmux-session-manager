@@ -56,7 +56,7 @@ def session_exists(session: str) -> bool:
         .strip()
         .splitlines()
     )
-    return session in current_tmux_sessions
+    return (session in current_tmux_sessions)
 
 
 def restore_layout():
