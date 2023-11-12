@@ -7,7 +7,7 @@ import subprocess
 from collections import Counter
 
 
-TMUX_SESSION_FILE_PATH = Path("~/.tmux-session_test").expanduser()
+TMUX_SESSION_FILE_PATH = Path("~/.tmux-session").expanduser()
 DELIMITER = ";"
 
 
