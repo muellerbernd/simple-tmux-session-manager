@@ -48,16 +48,15 @@ def create_new_session(session: str, window_name: str, dir: str):
 
 
 def session_exists(session: str) -> bool:
-    exists = False
-    process = subprocess.Popen(
-        [f"tmux has-session -t {session}"],
-        shell=True,
-        stdout=subprocess.PIPE,
+    current_tmux_sessions = (
+        os.popen(
+            f'tmux list-sessions -F "#S"'
+        )
+        .read()
+        .strip()
+        .splitlines()
     )
-    returncode = process.wait()
-    if returncode == 0:
-        exists = True
-    return exists
+    return session in current_tmux_sessions
 
 
 def restore_layout():
@@ -87,6 +86,8 @@ def main(mode: str):
             save_layout()
         case "restore":
             restore_layout()
+        # case "test":
+        #     print(session_exists(session="dotfile"))
         case _:
             print("no known command")
 
