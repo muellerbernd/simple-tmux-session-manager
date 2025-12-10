@@ -55,19 +55,16 @@ def save_layout(dry_run: bool = False):
             print(f"  {l}")
         return
 
-    # Ensure at most two backups exist
+    # Backups: keep at most two and skip creating an empty backup
     try:
-        # Collect existing backups: name matching "<original>*.bak"
         backups = [
             p
             for p in TMUX_SESSION_FILE_PATH.parent.glob(
                 TMUX_SESSION_FILE_PATH.name + "*.bak"
             )
         ]
-        # Sort by modification time (oldest first)
         backups.sort(key=lambda p: p.stat().st_mtime)
-        # Keep only the two most recent backups
-        while len(backups) >= 2:
+        while len(backups) > 2:
             old = backups.pop(0)
             try:
                 old.unlink()
@@ -75,11 +72,10 @@ def save_layout(dry_run: bool = False):
                 print(
                     f"Warning: failed to remove old backup {old}: {e}", file=sys.stderr
                 )
-    except Exception as e:
-        # If anything goes wrong with backup cleanup, continue without failing the save
-        print(f"{e}")
+    except Exception:
+        pass
 
-    if TMUX_SESSION_FILE_PATH.exists():
+    if TMUX_SESSION_FILE_PATH.exists() and TMUX_SESSION_FILE_PATH.stat().st_size > 0:
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         backup_path = TMUX_SESSION_FILE_PATH.with_name(
             TMUX_SESSION_FILE_PATH.name + f".{timestamp}.bak"
@@ -90,6 +86,11 @@ def save_layout(dry_run: bool = False):
             print(
                 f"Warning: failed to create backup {backup_path}: {e}", file=sys.stderr
             )
+    else:
+        print(
+            "Note: original tmux session file is missing or empty; skipping backup creation.",
+            file=sys.stderr,
+        )
 
     with open(TMUX_SESSION_FILE_PATH, "w") as f:
         current_tmux_layout = read_current_tmux_layout()
