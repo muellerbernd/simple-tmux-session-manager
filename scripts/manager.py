@@ -55,7 +55,30 @@ def save_layout(dry_run: bool = False):
             print(f"  {l}")
         return
 
-    # Real save logic (only runs when not dry-run)
+    # Ensure at most two backups exist
+    try:
+        # Collect existing backups: name matching "<original>*.bak"
+        backups = [
+            p
+            for p in TMUX_SESSION_FILE_PATH.parent.glob(
+                TMUX_SESSION_FILE_PATH.name + "*.bak"
+            )
+        ]
+        # Sort by modification time (oldest first)
+        backups.sort(key=lambda p: p.stat().st_mtime)
+        # Keep only the two most recent backups
+        while len(backups) >= 2:
+            old = backups.pop(0)
+            try:
+                old.unlink()
+            except Exception as e:
+                print(
+                    f"Warning: failed to remove old backup {old}: {e}", file=sys.stderr
+                )
+    except Exception as e:
+        # If anything goes wrong with backup cleanup, continue without failing the save
+        print(f"{e}")
+
     if TMUX_SESSION_FILE_PATH.exists():
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         backup_path = TMUX_SESSION_FILE_PATH.with_name(
