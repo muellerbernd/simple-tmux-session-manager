@@ -1,13 +1,34 @@
 #!/usr/bin/env python3
 
+import datetime
 import os
+import shutil
 import sys
-from pathlib import Path
 from collections import Counter
-
+from pathlib import Path
 
 TMUX_SESSION_FILE_PATH = Path("~/.tmux-session").expanduser()
 DELIMITER = ";"
+
+
+def print_help():
+    help_text = """
+Tmux session manager
+
+Usage:
+  script.py save      - Save current tmux layout to ~/.tmux-session (with backups)
+  script.py restore   - Restore tmux sessions from ~/.tmux-session
+  script.py help      - Show this help message
+  script.py -h|--help - Show this help message
+
+Notes:
+  - When saving, the script creates a timestamped backup of ~/.tmux-session
+
+    and keeps only the two most recent backups.
+  - The restore process will recreate missing sessions and add missing windows.
+
+"""
+    print(help_text.strip())
 
 
 def read_current_tmux_layout() -> list[str]:
@@ -24,6 +45,42 @@ def read_current_tmux_layout() -> list[str]:
 
 def save_layout():
     os.popen('tmux display-message "saved sessions"')
+
+    # Create a timestamped backup if the file exists
+    if TMUX_SESSION_FILE_PATH.exists():
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        backup_path = TMUX_SESSION_FILE_PATH.with_name(
+            TMUX_SESSION_FILE_PATH.name + f".{timestamp}.bak"
+        )
+        try:
+            shutil.copy2(TMUX_SESSION_FILE_PATH, backup_path)
+            # Keep only the two most recent backups
+            backups_dir = TMUX_SESSION_FILE_PATH.parent
+            base_name = TMUX_SESSION_FILE_PATH.name
+            pattern = f"{base_name}.*.bak"
+
+            # Collect matching backup files
+            backup_files = [f for f in backups_dir.glob(pattern) if f.is_file()]
+
+            # Sort by modification time, newest first
+            backup_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+            # Remove backups beyond the first two
+            for old_backup in backup_files[2:]:
+                try:
+                    old_backup.unlink()
+                except Exception as e:
+                    print(
+                        f"Warning: failed to remove old backup {old_backup}: {e}",
+                        file=sys.stderr,
+                    )
+
+        except Exception as e:
+            # Non-fatal: continue with save, but log the issue
+            print(
+                f"Warning: failed to create backup {backup_path}: {e}", file=sys.stderr
+            )
+
     with open(TMUX_SESSION_FILE_PATH, "w") as f:
         current_tmux_layout = read_current_tmux_layout()
         for l in current_tmux_layout:
@@ -48,14 +105,9 @@ def create_new_session(session: str, window_name: str, dir: str):
 
 def session_exists(session: str) -> bool:
     current_tmux_sessions = (
-        os.popen(
-            f'tmux list-sessions -F "#S"'
-        )
-        .read()
-        .strip()
-        .splitlines()
+        os.popen('tmux list-sessions -F "#S"').read().strip().splitlines()
     )
-    return (session in current_tmux_sessions)
+    return session in current_tmux_sessions
 
 
 def restore_layout():
@@ -80,15 +132,17 @@ def restore_layout():
 
 
 def main(mode: str):
+    if mode in ("-h", "--help", "help"):
+        print_help()
+        return
+
     match mode:
         case "save":
             save_layout()
         case "restore":
             restore_layout()
-        # case "test":
-        #     print(session_exists(session="dotfile"))
         case _:
-            print("no known command")
+            print("no known command. Use -h/--help for usage.")
 
 
 if __name__ == "__main__":
