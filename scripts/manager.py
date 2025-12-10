@@ -11,6 +11,11 @@ TMUX_SESSION_FILE_PATH = Path("~/.tmux-session").expanduser()
 DELIMITER = ";"
 
 
+# Dry-run flag
+
+DRY_RUN = False
+
+
 def print_help():
     help_text = """
 Tmux session manager
@@ -21,12 +26,8 @@ Usage:
   script.py help      - Show this help message
   script.py -h|--help - Show this help message
 
-Notes:
-  - When saving, the script creates a timestamped backup of ~/.tmux-session
-
-    and keeps only the two most recent backups.
-  - The restore process will recreate missing sessions and add missing windows.
-
+Options:
+  -d, --dry-run       Show what would be done without making any changes
 """
     print(help_text.strip())
 
@@ -43,10 +44,18 @@ def read_current_tmux_layout() -> list[str]:
     return current_tmux_layout
 
 
-def save_layout():
-    os.popen('tmux display-message "saved sessions"')
+def save_layout(dry_run: bool = False):
+    if not dry_run:
+        os.popen('tmux display-message "saved sessions"')
 
-    # Create a timestamped backup if the file exists
+    if dry_run:
+        print("[dry-run] Would save layout to:", TMUX_SESSION_FILE_PATH)
+        print("[dry-run] Would read current tmux layout:")
+        for l in read_current_tmux_layout():
+            print(f"  {l}")
+        return
+
+    # Real save logic (only runs when not dry-run)
     if TMUX_SESSION_FILE_PATH.exists():
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         backup_path = TMUX_SESSION_FILE_PATH.with_name(
@@ -54,29 +63,7 @@ def save_layout():
         )
         try:
             shutil.copy2(TMUX_SESSION_FILE_PATH, backup_path)
-            # Keep only the two most recent backups
-            backups_dir = TMUX_SESSION_FILE_PATH.parent
-            base_name = TMUX_SESSION_FILE_PATH.name
-            pattern = f"{base_name}.*.bak"
-
-            # Collect matching backup files
-            backup_files = [f for f in backups_dir.glob(pattern) if f.is_file()]
-
-            # Sort by modification time, newest first
-            backup_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-
-            # Remove backups beyond the first two
-            for old_backup in backup_files[2:]:
-                try:
-                    old_backup.unlink()
-                except Exception as e:
-                    print(
-                        f"Warning: failed to remove old backup {old_backup}: {e}",
-                        file=sys.stderr,
-                    )
-
         except Exception as e:
-            # Non-fatal: continue with save, but log the issue
             print(
                 f"Warning: failed to create backup {backup_path}: {e}", file=sys.stderr
             )
@@ -132,13 +119,20 @@ def restore_layout():
 
 
 def main(mode: str):
+    global DRY_RUN
+
     if mode in ("-h", "--help", "help"):
         print_help()
         return
 
+    if mode in ("-d", "--dry-run"):
+        DRY_RUN = True
+        save_layout(dry_run=DRY_RUN)
+        return
+
     match mode:
         case "save":
-            save_layout()
+            save_layout(dry_run=DRY_RUN)
         case "restore":
             restore_layout()
         case _:
